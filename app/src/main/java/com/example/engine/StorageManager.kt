@@ -31,6 +31,8 @@ class StorageManager(context: Context) {
         private const val KEY_DAILY_DATE = "key_daily_date"
         private const val KEY_DAILY_COMPLETED = "key_daily_completed"
         private const val KEY_DAILY_SCORE = "key_daily_score"
+        private const val KEY_UNLOCKED_LEVELS = "key_unlocked_levels"
+        private const val KEY_COMPLETED_LEVELS = "key_completed_levels"
 
         const val DAILY_CHALLENGE_REWARD: Int = 250
         const val UNIQUE_SYNTHESIS_REWARD: Int = 50
@@ -230,6 +232,21 @@ class StorageManager(context: Context) {
             }
         }
 
+        // Load level progression
+        val unlockedLevelsStr = prefs.getString(KEY_UNLOCKED_LEVELS, "1") ?: "1"
+        val unlockedLevelsSet = unlockedLevelsStr.split(",").filter { it.isNotEmpty() }.mapNotNull { it.toIntOrNull() }.toSet().ifEmpty { setOf(1) }
+        val completedLevelsStr = prefs.getString(KEY_COMPLETED_LEVELS, "") ?: ""
+        val completedLevelsSet = completedLevelsStr.split(",").filter { it.isNotEmpty() }.mapNotNull { it.toIntOrNull() }.toSet()
+
+        val levelStarsMap = mutableMapOf<Int, Int>()
+        val levelScoresMap = mutableMapOf<Int, Int>()
+        for (lvl in 1..50) {
+            val stars = prefs.getInt("level_${lvl}_stars", 0)
+            if (stars > 0) levelStarsMap[lvl] = stars
+            val sc = prefs.getInt("level_${lvl}_score", 0)
+            if (sc > 0) levelScoresMap[lvl] = sc
+        }
+
         return UserProgress(
             settings = settings,
             totalScore = totalScore,
@@ -246,8 +263,79 @@ class StorageManager(context: Context) {
             formulaForgeSynthesizedCount = synthSet.size,
             synthesizedFormulas = synthSet,
             learnedConceptIds = learnedSet,
-            reviewCardStates = reviewStates
+            reviewCardStates = reviewStates,
+            unlockedLevels = unlockedLevelsSet,
+            completedLevels = completedLevelsSet,
+            levelStars = levelStarsMap,
+            levelHighScores = levelScoresMap
         )
+    }
+
+    /**
+     * Records completion of an individual campaign level (1..50).
+     * Enforces that first-time completion awards XP bonus and unlocks next level/world.
+     * Replaying records personal best stars and score, but awards 0 duplicate completion points.
+     */
+    fun recordLevelCompletion(
+        levelNumber: Int,
+        scoreEarned: Int,
+        stars: Int,
+        conceptKey: String = ""
+    ): Int {
+        val editor = prefs.edit()
+        val completedLevelsStr = prefs.getString(KEY_COMPLETED_LEVELS, "") ?: ""
+        val completedSet = completedLevelsStr.split(",").filter { it.isNotEmpty() }.mapNotNull { it.toIntOrNull() }.toMutableSet()
+        val isFirstTime = !completedSet.contains(levelNumber)
+
+        var pointsAwarded = 0
+        if (isFirstTime) {
+            completedSet.add(levelNumber)
+            editor.putString(KEY_COMPLETED_LEVELS, completedSet.joinToString(","))
+            pointsAwarded = scoreEarned
+
+            val totalScore = prefs.getInt(KEY_SCORE, 0)
+            val chemScore = prefs.getInt(KEY_CHEM_SCORE, 0)
+            editor.putInt(KEY_SCORE, totalScore + pointsAwarded)
+            editor.putInt(KEY_CHEM_SCORE, chemScore + pointsAwarded)
+        }
+
+        // Always update best stars and score
+        val prevStars = prefs.getInt("level_${levelNumber}_stars", 0)
+        if (stars > prevStars) {
+            editor.putInt("level_${levelNumber}_stars", stars)
+        }
+        val prevScore = prefs.getInt("level_${levelNumber}_score", 0)
+        if (scoreEarned > prevScore) {
+            editor.putInt("level_${levelNumber}_score", scoreEarned)
+        }
+
+        // Unlock next level (up to 50)
+        val unlockedLevelsStr = prefs.getString(KEY_UNLOCKED_LEVELS, "1") ?: "1"
+        val unlockedLevelsSet = unlockedLevelsStr.split(",").filter { it.isNotEmpty() }.mapNotNull { it.toIntOrNull() }.toMutableSet()
+        if (levelNumber < 50) {
+            unlockedLevelsSet.add(levelNumber + 1)
+            editor.putString(KEY_UNLOCKED_LEVELS, unlockedLevelsSet.joinToString(","))
+        }
+
+        // If levelNumber is the 5th level of world W, unlock world W+1
+        val worldId = ((levelNumber - 1) / 5) + 1
+        if (levelNumber % 5 == 0 && worldId < 10) {
+            val currentUnlockedWorlds = prefs.getString(KEY_UNLOCKED_WORLDS, "1") ?: "1"
+            val unlockedWorldsSet = currentUnlockedWorlds.split(",").filter { it.isNotEmpty() }.mapNotNull { it.toIntOrNull() }.toMutableSet()
+            unlockedWorldsSet.add(worldId + 1)
+            editor.putString(KEY_UNLOCKED_WORLDS, unlockedWorldsSet.joinToString(","))
+        }
+
+        // Register conceptKey in learnedConceptIds for Spaced Review
+        if (conceptKey.isNotEmpty()) {
+            val curLearned = prefs.getString(KEY_LEARNED_CONCEPTS, "") ?: ""
+            val learnedSet = curLearned.split(",").filter { it.isNotEmpty() }.toMutableSet()
+            learnedSet.add(conceptKey)
+            editor.putString(KEY_LEARNED_CONCEPTS, learnedSet.joinToString(","))
+        }
+
+        editor.apply()
+        return pointsAwarded
     }
 
     fun unlockWorld(worldId: Int) {

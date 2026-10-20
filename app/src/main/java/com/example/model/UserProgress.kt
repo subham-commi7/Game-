@@ -61,5 +61,9 @@ data class UserProgress(
     val formulaForgeSynthesizedCount: Int = 0,
     val synthesizedFormulas: Set<String> = emptySet(),
     val learnedConceptIds: Set<String> = emptySet(),
-    val reviewCardStates: Map<String, SpacedReviewState> = emptyMap()
+    val reviewCardStates: Map<String, SpacedReviewState> = emptyMap(),
+    val unlockedLevels: Set<Int> = setOf(1), // Level 1 unlocked by default
+    val completedLevels: Set<Int> = emptySet(),
+    val levelStars: Map<Int, Int> = emptyMap(), // Level Number -> Stars (1..3)
+    val levelHighScores: Map<Int, Int> = emptyMap() // Level Number -> Best Score
 )
