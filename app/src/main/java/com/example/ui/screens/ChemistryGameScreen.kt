@@ -39,6 +39,7 @@ fun ChemistryGameScreen(
     worldId: Int,
     currentLang: String,
     score: Int,
+    settings: com.example.model.AppSettings = com.example.model.AppSettings(),
     onToggleLang: () -> Unit,
     onRecordQuizResult: (worldId: Int, topicKey: String, correct: Boolean, scoreEarned: Int) -> Unit,
     onBack: () -> Unit
@@ -123,7 +124,9 @@ fun ChemistryGameScreen(
                     AtomVisualCanvas(
                         protons = pCount,
                         neutrons = nCount,
-                        electrons = eCount
+                        electrons = eCount,
+                        reducedMotion = settings.reducedMotion,
+                        visualEffectsHigh = settings.visualEffectsHigh
                     )
 
                     Spacer(modifier = Modifier.height(10.dp))

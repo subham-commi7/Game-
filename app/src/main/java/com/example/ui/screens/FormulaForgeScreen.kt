@@ -37,8 +37,9 @@ import com.example.ui.theme.*
 fun FormulaForgeScreen(
     currentLang: String,
     score: Int,
+    synthesizedFormulas: Set<String> = emptySet(),
     onToggleLang: () -> Unit,
-    onSynthesizeCompound: (String) -> Unit,
+    onSynthesizeCompound: (String) -> Int,
     onBack: () -> Unit
 ) {
     val cations = remember { ChemistryUniverseData.COMMON_IONS.filter { it.charge > 0 } }
@@ -46,6 +47,8 @@ fun FormulaForgeScreen(
 
     var selectedCation by remember { mutableStateOf(cations[0]) } // Na+
     var selectedAnion by remember { mutableStateOf(anions[0]) }  // Cl-
+    var feedbackMessage by remember { mutableStateOf<String?>(null) }
+    var feedbackSuccess by remember { mutableStateOf(false) }
 
     val (catCount, anCount) = remember(selectedCation, selectedAnion) {
         ChemistryEngine.calculateNeutralRatio(selectedCation.charge, selectedAnion.charge)
@@ -257,14 +260,44 @@ fun FormulaForgeScreen(
                 }
             }
 
-            // Synthesize Button
+            // Synthesize Button & Feedback
+            val canonical = remember(synthesizedFormula) { ChemistryEngine.normalizeFormulaText(synthesizedFormula) }
+            val alreadyForged = synthesizedFormulas.contains(canonical)
+
+            if (feedbackMessage != null) {
+                SciFiCard(borderColor = if (feedbackSuccess) EmeraldNeon else AmberNeon) {
+                    Text(
+                        text = feedbackMessage!!,
+                        color = if (feedbackSuccess) EmeraldLight else AmberLight,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+
             NeonButton(
-                text = Strings.synthesize(currentLang),
-                onClick = { onSynthesizeCompound(synthesizedFormula) },
+                text = if (alreadyForged) {
+                    if (currentLang == "bn") "সংগ্রহশালায় সংরক্ষিত (০ পয়েন্ট)" else "Already in Codex (0 Pts)"
+                } else {
+                    Strings.synthesize(currentLang)
+                },
+                onClick = {
+                    val pts = onSynthesizeCompound(synthesizedFormula)
+                    if (pts > 0) {
+                        feedbackSuccess = true
+                        feedbackMessage = if (currentLang == "bn") "নতুন যৌগ সংশ্লেষিত! +$pts পয়েন্ট অর্জিত!" else "New compound synthesized! +$pts Points Awarded!"
+                    } else {
+                        feedbackSuccess = false
+                        feedbackMessage = if (currentLang == "bn") "এই যৌগটি ইতোমধ্যেই সংগৃহীত। পুনঃপ্রচেষ্টায় পয়েন্ট নেই।" else "This compound is already registered. No duplicate points."
+                    }
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp),
-                color = CyanNeon,
+                color = if (alreadyForged) SurfaceCardHover else CyanNeon,
+                textColor = if (alreadyForged) TextSecondary else SpaceBlack,
                 testTag = "synthesize_compound_btn"
             )
 

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import com.example.data.ChemistryUniverseData
 import com.example.engine.StorageManager
 import com.example.model.AppSettings
 import com.example.model.UserProgress
@@ -103,6 +104,13 @@ class MainActivity : ComponentActivity() {
                         }
 
                         "lesson" -> {
+                            LaunchedEffect(activeWorldId) {
+                                val concepts = ChemistryUniverseData.REVIEW_ITEMS
+                                    .filter { it.worldId == activeWorldId }
+                                    .flatMap { listOf(it.id, it.conceptKey) }
+                                storageManager.recordLessonCompletion(activeWorldId, "w${activeWorldId}_lesson", concepts)
+                                progress = storageManager.loadUserProgress()
+                            }
                             LessonScreen(
                                 worldId = activeWorldId,
                                 currentLang = currentLang,
@@ -120,6 +128,7 @@ class MainActivity : ComponentActivity() {
                                 worldId = activeWorldId,
                                 currentLang = currentLang,
                                 score = progress.totalScore,
+                                settings = progress.settings,
                                 onToggleLang = ::toggleLanguage,
                                 onRecordQuizResult = { wId, topicKey, correct, pts ->
                                     storageManager.recordQuizResult(wId, topicKey, correct, pts)
@@ -139,7 +148,7 @@ class MainActivity : ComponentActivity() {
                                 score = progress.totalScore,
                                 onToggleLang = ::toggleLanguage,
                                 onAddScore = { pts ->
-                                    storageManager.addPoints(pts)
+                                    storageManager.addPoints(pts, isMemory = true)
                                     progress = storageManager.loadUserProgress()
                                 },
                                 onBack = ::navigateBack
@@ -147,13 +156,15 @@ class MainActivity : ComponentActivity() {
                         }
 
                         "daily_challenge" -> {
-                            MemoryGameScreen(
+                            DailyChallengeScreen(
                                 currentLang = currentLang,
                                 score = progress.totalScore,
+                                dailyState = progress.dailyChallenge,
                                 onToggleLang = ::toggleLanguage,
-                                onAddScore = { pts ->
-                                    storageManager.addPoints(pts + 100) // Daily challenge bonus
+                                onCompleteDailyChallenge = {
+                                    val awarded = storageManager.completeDailyChallenge()
                                     progress = storageManager.loadUserProgress()
+                                    awarded
                                 },
                                 onBack = ::navigateBack
                             )
@@ -163,10 +174,12 @@ class MainActivity : ComponentActivity() {
                             FormulaForgeScreen(
                                 currentLang = currentLang,
                                 score = progress.totalScore,
+                                synthesizedFormulas = progress.synthesizedFormulas,
                                 onToggleLang = ::toggleLanguage,
                                 onSynthesizeCompound = { formula ->
-                                    storageManager.addPoints(50)
+                                    val awarded = storageManager.recordFormulaSynthesis(formula)
                                     progress = storageManager.loadUserProgress()
+                                    awarded
                                 },
                                 onBack = ::navigateBack
                             )
@@ -185,6 +198,11 @@ class MainActivity : ComponentActivity() {
                             NotebookScreen(
                                 currentLang = currentLang,
                                 score = progress.totalScore,
+                                progress = progress,
+                                onRecordReviewResult = { cardId, wasCorrect ->
+                                    storageManager.recordReviewResult(cardId, wasCorrect)
+                                    progress = storageManager.loadUserProgress()
+                                },
                                 bookmarkedIds = progress.bookmarkedReviewIds,
                                 onToggleBookmark = { id ->
                                     storageManager.toggleBookmark(id)

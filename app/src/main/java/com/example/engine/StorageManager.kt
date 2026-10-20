@@ -63,8 +63,8 @@ class StorageManager(context: Context) {
             .apply()
     }
 
-    fun loadDailyChallengeState(): DailyChallengeState {
-        val today = getTodayDateString()
+    fun loadDailyChallengeState(dateOverride: String? = null): DailyChallengeState {
+        val today = dateOverride ?: getTodayDateString()
         val savedDate = prefs.getString(KEY_DAILY_DATE, "") ?: ""
         return if (savedDate == today) {
             val completed = prefs.getBoolean(KEY_DAILY_COMPLETED, false)
@@ -81,8 +81,8 @@ class StorageManager(context: Context) {
      * Prevents duplicate rewards on the same day.
      * Returns the actual score awarded (DAILY_CHALLENGE_REWARD on first completion, 0 if already completed).
      */
-    fun completeDailyChallenge(): Int {
-        val today = getTodayDateString()
+    fun completeDailyChallenge(dateOverride: String? = null): Int {
+        val today = dateOverride ?: getTodayDateString()
         val savedDate = prefs.getString(KEY_DAILY_DATE, "") ?: ""
         val alreadyCompleted = savedDate == today && prefs.getBoolean(KEY_DAILY_COMPLETED, false)
         if (alreadyCompleted) {
@@ -116,20 +116,26 @@ class StorageManager(context: Context) {
 
     /**
      * Synthesizes a unique formula in Formula Forge.
-     * Awards points ONLY for first-time synthesis of each distinct compound formula.
-     * Returns points awarded (UNIQUE_SYNTHESIS_REWARD if new, 0 if duplicate).
+     * Validates formula with ChemistryEngine and canonicalizes ASCII/Unicode representation.
+     * Awards points ONLY for first-time synthesis of each distinct valid compound formula.
+     * Returns points awarded (UNIQUE_SYNTHESIS_REWARD if new, 0 if duplicate or invalid).
      */
     fun recordFormulaSynthesis(formula: String): Int {
-        val clean = formula.trim()
-        if (clean.isEmpty()) return 0
+        val canonical = ChemistryEngine.normalizeFormulaText(formula).trim()
+        if (canonical.isEmpty()) return 0
+
+        // Strict chemical formula validation
+        if (!ChemistryEngine.isValidFormula(canonical)) {
+            return 0
+        }
 
         val currentStr = prefs.getString(KEY_SYNTHESIZED_FORMULAS, "") ?: ""
         val set = currentStr.split(",").filter { it.isNotEmpty() }.toMutableSet()
-        if (set.contains(clean)) {
+        if (set.contains(canonical)) {
             return 0 // Already synthesized; prevent unlimited score farming
         }
 
-        set.add(clean)
+        set.add(canonical)
         val editor = prefs.edit()
         editor.putString(KEY_SYNTHESIZED_FORMULAS, set.joinToString(","))
         val curTotal = prefs.getInt(KEY_SCORE, 0)

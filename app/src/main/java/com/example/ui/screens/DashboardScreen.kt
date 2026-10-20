@@ -85,7 +85,8 @@ fun DashboardScreen(
 
             // Daily Challenge Card
             item {
-                SciFiCard(borderColor = AmberNeon) {
+                val isDailyCompleted = progress.dailyChallenge.completed
+                SciFiCard(borderColor = if (isDailyCompleted) EmeraldNeon else AmberNeon) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
@@ -94,10 +95,14 @@ fun DashboardScreen(
                             modifier = Modifier
                                 .size(44.dp)
                                 .clip(RoundedCornerShape(10.dp))
-                                .background(AmberNeon.copy(alpha = 0.2f)),
+                                .background((if (isDailyCompleted) EmeraldNeon else AmberNeon).copy(alpha = 0.2f)),
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(Icons.Default.Bolt, contentDescription = "Daily", tint = AmberNeon)
+                            Icon(
+                                imageVector = if (isDailyCompleted) Icons.Default.CheckCircle else Icons.Default.Bolt,
+                                contentDescription = "Daily",
+                                tint = if (isDailyCompleted) EmeraldNeon else AmberNeon
+                            )
                         }
 
                         Spacer(modifier = Modifier.width(12.dp))
@@ -110,19 +115,34 @@ fun DashboardScreen(
                                 color = TextPrimary
                             )
                             Text(
-                                text = if (currentLang == "bn") "প্রতিদিনের দ্রুত রসায়ন ও মেমোরি পরীক্ষা (+২৫০ পয়েন্ট)" else "Daily cognitive recall quest (+250 Pts)",
+                                text = if (isDailyCompleted) {
+                                    if (currentLang == "bn") "আজকের চ্যালেঞ্জ সম্পন্ন (+২৫০ পয়েন্ট সংগৃহীত)" else "Today's challenge completed (+250 Pts claimed)"
+                                } else {
+                                    if (currentLang == "bn") "প্রতিদিনের দ্রুত রসায়ন ও মেমোরি পরীক্ষা (+২৫০ পয়েন্ট)" else "Daily cognitive recall quest (+250 Pts)"
+                                },
                                 fontSize = 11.sp,
-                                color = TextSecondary
+                                color = if (isDailyCompleted) EmeraldLight else TextSecondary
                             )
                         }
 
                         Button(
                             onClick = onLaunchDailyChallenge,
-                            colors = ButtonDefaults.buttonColors(containerColor = AmberNeon, contentColor = SpaceBlack),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (isDailyCompleted) EmeraldNeon else AmberNeon,
+                                contentColor = SpaceBlack
+                            ),
                             shape = RoundedCornerShape(8.dp),
                             modifier = Modifier.testTag("launch_daily_btn")
                         ) {
-                            Text(text = if (currentLang == "bn") "শুরু" else "Play", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            Text(
+                                text = if (isDailyCompleted) {
+                                    if (currentLang == "bn") "রিভিউ" else "Review"
+                                } else {
+                                    if (currentLang == "bn") "শুরু" else "Play"
+                                },
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp
+                            )
                         }
                     }
                 }

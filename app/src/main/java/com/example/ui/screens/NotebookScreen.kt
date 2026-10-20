@@ -29,11 +29,16 @@ import com.example.model.SyllabusTopic
 import com.example.ui.components.SciFiCard
 import com.example.ui.components.SciFiTopBar
 import com.example.ui.theme.*
+import com.example.engine.AdaptiveEngine
+import com.example.model.UserProgress
+import java.util.concurrent.TimeUnit
 
 @Composable
 fun NotebookScreen(
     currentLang: String,
     score: Int,
+    progress: UserProgress,
+    onRecordReviewResult: (cardId: String, wasCorrect: Boolean) -> Unit,
     bookmarkedIds: Set<String>,
     onToggleBookmark: (String) -> Unit,
     onToggleLang: () -> Unit,
@@ -96,7 +101,13 @@ fun NotebookScreen(
                 when (selectedTab) {
                     0 -> FormulasTab(currentLang)
                     1 -> IonsTab(currentLang)
-                    2 -> ReviewQueueTab(currentLang, bookmarkedIds, onToggleBookmark)
+                    2 -> ReviewQueueTab(
+                        currentLang = currentLang,
+                        progress = progress,
+                        bookmarkedIds = bookmarkedIds,
+                        onRecordReviewResult = onRecordReviewResult,
+                        onToggleBookmark = onToggleBookmark
+                    )
                     3 -> SyllabusTab(currentLang)
                 }
             }
@@ -192,52 +203,270 @@ private fun IonsTab(currentLang: String) {
 @Composable
 private fun ReviewQueueTab(
     currentLang: String,
+    progress: UserProgress,
     bookmarkedIds: Set<String>,
+    onRecordReviewResult: (cardId: String, wasCorrect: Boolean) -> Unit,
     onToggleBookmark: (String) -> Unit
 ) {
+    val now = System.currentTimeMillis()
+
+    // Show only concepts that learner has actually encountered
+    val learnedCards = remember(progress.learnedConceptIds, progress.reviewCardStates) {
+        ChemistryUniverseData.REVIEW_ITEMS.filter { card ->
+            progress.learnedConceptIds.contains(card.id) ||
+            progress.learnedConceptIds.contains(card.conceptKey)
+        }.map { card ->
+            val state = progress.reviewCardStates[card.id]
+            if (state != null) {
+                card.copy(
+                    nextReviewEpoch = state.nextReviewEpoch,
+                    intervalDays = state.intervalDays,
+                    repetitionCount = state.repetitionCount
+                )
+            } else {
+                card
+            }
+        }
+    }
+
+    val dueCards = remember(learnedCards, progress.reviewCardStates) {
+        AdaptiveEngine.getDueCards(learnedCards, now)
+    }
+
+    val upcomingCards = remember(learnedCards, dueCards) {
+        learnedCards.filter { !dueCards.contains(it) }
+    }
+
+    val revealedIds = remember { mutableStateListOf<String>() }
+
     LazyColumn(
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier.fillMaxSize()
     ) {
-        items(ChemistryUniverseData.REVIEW_ITEMS) { card ->
-            val isBookmarked = bookmarkedIds.contains(card.id)
-            SciFiCard(borderColor = if (isBookmarked) AmberNeon else BorderSubtle) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = if (currentLang == "bn") card.titleBn else card.titleEn,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp,
-                            color = TextPrimary
-                        )
-                        Text(
-                            text = card.formula,
-                            fontFamily = FontFamily.Monospace,
-                            color = CyanNeon,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = if (currentLang == "bn") card.summaryBn else card.summaryEn,
-                            fontSize = 11.sp,
-                            color = TextSecondary,
-                            lineHeight = 15.sp
-                        )
-                    }
+        if (learnedCards.isEmpty()) {
+            item {
+                SciFiCard(borderColor = BorderCyan) {
+                    Text(
+                        text = if (currentLang == "bn")
+                            "এখনো কোনো ধারণা শেখা হয়নি"
+                        else
+                            "No Learned Concepts Yet",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        color = CyanNeon
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = if (currentLang == "bn")
+                            "এক্সপিডিশনে নতুন পাঠ ও চ্যালেঞ্জ সম্পন্ন করার সাথে সাথে সংশ্লিষ্ট স্পেসড রিভিউ কার্ডগুলো এখানে স্বয়ংক্রিয়ভাবে সক্রিয় হবে।"
+                        else
+                            "As you study lessons and complete quiz expeditions, their associated chemical recall cards will automatically be scheduled here.",
+                        fontSize = 12.sp,
+                        color = TextSecondary,
+                        lineHeight = 17.sp
+                    )
+                }
+            }
+        } else {
+            // Due for Review Section
+            if (dueCards.isNotEmpty()) {
+                item {
+                    Text(
+                        text = if (currentLang == "bn")
+                            "রিভিউয়ের জন্য প্রস্তুত (${dueCards.size})"
+                        else
+                            "Due for Recall Review (${dueCards.size})",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = RoseNeon
+                    )
+                }
 
-                    IconButton(
-                        onClick = { onToggleBookmark(card.id) },
-                        modifier = Modifier.testTag("bookmark_${card.id}")
-                    ) {
-                        Icon(
-                            imageVector = if (isBookmarked) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
-                            contentDescription = "Bookmark",
-                            tint = if (isBookmarked) AmberNeon else TextSecondary
+                items(dueCards) { card ->
+                    val isRevealed = revealedIds.contains(card.id)
+                    val isBookmarked = bookmarkedIds.contains(card.id)
+
+                    SciFiCard(borderColor = if (isRevealed) AmberNeon else RoseNeon) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = if (currentLang == "bn") card.titleBn else card.titleEn,
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 15.sp,
+                                color = TextPrimary
+                            )
+                            IconButton(
+                                onClick = { onToggleBookmark(card.id) },
+                                modifier = Modifier.testTag("bookmark_${card.id}")
+                            ) {
+                                Icon(
+                                    imageVector = if (isBookmarked) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
+                                    contentDescription = "Bookmark",
+                                    tint = if (isBookmarked) AmberNeon else TextSecondary
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        Text(
+                            text = if (currentLang == "bn")
+                                "স্মৃতি পরীক্ষা: এই রাসায়নিক ধারণার সঠিক সূত্র ও নীতি কী?"
+                            else
+                                "Active Recall: What is the underlying formula and principle?",
+                            fontSize = 12.sp,
+                            color = CyanGlow
                         )
+
+                        if (!isRevealed) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Button(
+                                onClick = { revealedIds.add(card.id) },
+                                colors = ButtonDefaults.buttonColors(containerColor = CyanNeon, contentColor = SpaceBlack),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("reveal_answer_${card.id}")
+                            ) {
+                                Text(
+                                    text = if (currentLang == "bn") "উত্তর ও সূত্র দেখুন" else "Reveal Answer & Formula",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp
+                                )
+                            }
+                        } else {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(SurfaceNavy)
+                                    .padding(8.dp)
+                            ) {
+                                Column {
+                                    Text(
+                                        text = card.formula,
+                                        fontFamily = FontFamily.Monospace,
+                                        fontWeight = FontWeight.Bold,
+                                        color = EmeraldLight,
+                                        fontSize = 16.sp
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = if (currentLang == "bn") card.summaryBn else card.summaryEn,
+                                        fontSize = 12.sp,
+                                        color = TextSecondary
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Button(
+                                    onClick = {
+                                        revealedIds.remove(card.id)
+                                        onRecordReviewResult(card.id, false)
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = RoseNeon, contentColor = SpaceBlack),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .testTag("review_forgotten_${card.id}")
+                                ) {
+                                    Text(
+                                        text = if (currentLang == "bn") "ভুলে গেছি (পুনরাবৃত্তি)" else "Forgot (Reset)",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+
+                                Button(
+                                    onClick = {
+                                        revealedIds.remove(card.id)
+                                        onRecordReviewResult(card.id, true)
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = EmeraldNeon, contentColor = SpaceBlack),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .testTag("review_remembered_${card.id}")
+                                ) {
+                                    Text(
+                                        text = if (currentLang == "bn") "মনে আছে (অগ্রগতি)" else "Remembered",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Upcoming / Mastered Section
+            if (upcomingCards.isNotEmpty()) {
+                item {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = if (currentLang == "bn")
+                            "আসন্ন রিভিউ ও আয়ত্ত কার্ড (${upcomingCards.size})"
+                        else
+                            "Upcoming Reviews & Scheduled Items (${upcomingCards.size})",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = CyanNeon
+                    )
+                }
+
+                items(upcomingCards) { card ->
+                    val isBookmarked = bookmarkedIds.contains(card.id)
+                    val daysUntil = ((card.nextReviewEpoch - now) / TimeUnit.DAYS.toMillis(1)).coerceAtLeast(0)
+
+                    SciFiCard(borderColor = BorderSubtle) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = if (currentLang == "bn") card.titleBn else card.titleEn,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp,
+                                    color = TextPrimary
+                                )
+                                Text(
+                                    text = card.formula,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = CyanNeon,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "${if (currentLang == "bn") "পরবর্তী রিভিউ:" else "Next review:"} ${if (daysUntil == 0L) (if (currentLang == "bn") "আজ" else "Today") else "$daysUntil ${if (currentLang == "bn") "দিন পর" else "days"}"}  •  ${if (currentLang == "bn") "পর্যায়:" else "Stage:"} ${card.repetitionCount}",
+                                    fontSize = 11.sp,
+                                    color = AmberLight
+                                )
+                            }
+
+                            IconButton(
+                                onClick = { onToggleBookmark(card.id) },
+                                modifier = Modifier.testTag("bookmark_${card.id}")
+                            ) {
+                                Icon(
+                                    imageVector = if (isBookmarked) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
+                                    contentDescription = "Bookmark",
+                                    tint = if (isBookmarked) AmberNeon else TextSecondary
+                                )
+                            }
+                        }
                     }
                 }
             }
