@@ -1,0 +1,8 @@
+{
+  "name": "NeuroVault: Chemistry Universe",
+  "description": "Chemistry memory adventure and B.Pharm foundation training game with interactive 2D atomic puzzles and spaced review.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

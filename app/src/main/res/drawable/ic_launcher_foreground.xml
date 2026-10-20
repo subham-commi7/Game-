@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Outer hexagonal crystal shield -->
+    <path
+        android:pathData="M54,26 L76,38 L76,64 L54,76 L32,64 L32,38 Z"
+        android:strokeColor="#4400E5FF"
+        android:strokeWidth="1.5"
+        android:fillColor="#00000000" />
+
+    <!-- Orbital ring 1 (diagonal) -->
+    <path
+        android:pathData="M34,42 C40,32 68,32 74,42 C80,52 68,74 54,74 C40,74 28,52 34,42 Z"
+        android:strokeColor="#C084FC"
+        android:strokeWidth="1.8"
+        android:fillColor="#00000000" />
+
+    <!-- Orbital ring 2 (counter-diagonal) -->
+    <path
+        android:pathData="M74,42 C68,32 40,32 34,42 C28,52 40,74 54,74 C68,74 80,52 74,42 Z"
+        android:strokeColor="#22D3EE"
+        android:strokeWidth="1.8"
+        android:fillColor="#00000000" />
+
+    <!-- Horizontal orbit ellipse -->
+    <path
+        android:pathData="M30,51 C30,44 78,44 78,51 C78,58 30,58 30,51 Z"
+        android:strokeColor="#38BDF8"
+        android:strokeWidth="1.6"
+        android:fillColor="#00000000" />
+
+    <!-- Central nucleus glow -->
+    <path
+        android:pathData="M54,46 A5,5 0 1,1 53.99,46 Z"
+        android:fillColor="#F8FAFC" />
+
+    <path
+        android:pathData="M54,44 A7,7 0 1,1 53.99,44 Z"
+        android:strokeColor="#00E5FF"
+        android:strokeWidth="1.2"
+        android:fillColor="#2200E5FF" />
+
+    <!-- Subatomic particle nodes (protons / electrons / memory sparks) -->
+    <path
+        android:pathData="M38,35 A3,3 0 1,1 37.99,35 Z"
+        android:fillColor="#38BDF8" />
+
+    <path
+        android:pathData="M70,35 A3,3 0 1,1 69.99,35 Z"
+        android:fillColor="#C084FC" />
+
+    <path
+        android:pathData="M54,72 A3,3 0 1,1 53.99,72 Z"
+        android:fillColor="#34D399" />
+
+    <path
+        android:pathData="M76,51 A2.5,2.5 0 1,1 75.99,51 Z"
+        android:fillColor="#F472B6" />
+
+    <path
+        android:pathData="M32,51 A2.5,2.5 0 1,1 31.99,51 Z"
+        android:fillColor="#FBBF24" />
+</vector>
