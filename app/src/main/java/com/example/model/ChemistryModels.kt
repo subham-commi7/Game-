@@ -135,3 +135,27 @@ data class ReviewCard(
     val repetitionCount: Int,
     val isBookmarked: Boolean = false
 )
+
+data class CampaignLevel(
+    val levelNumber: Int, // 1 to 50
+    val worldId: Int, // 1 to 10
+    val titleEn: String,
+    val titleBn: String,
+    val subtitleEn: String,
+    val subtitleBn: String,
+    val visualType: String,
+    val isBoss: Boolean = false,
+    val xpReward: Int = 100,
+    val objectiveEn: String,
+    val objectiveBn: String,
+    val conceptExplanationEn: String,
+    val conceptExplanationBn: String,
+    val workedExample: WorkedExample,
+    val question: ChemistryQuestion,
+    val keyRuleEn: String,
+    val keyRuleBn: String,
+    val conceptKey: String,
+    val pharmacyRelevanceEn: String = "",
+    val pharmacyRelevanceBn: String = ""
+)
+
