@@ -11,6 +11,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import com.example.data.ChemistryUniverseData
 import com.example.engine.StorageManager
+import com.example.engine.TutorContext
 import com.example.model.AppSettings
 import com.example.model.UserProgress
 import com.example.ui.screens.*
@@ -35,6 +36,8 @@ class MainActivity : ComponentActivity() {
             val currentScreen = screenStack.lastOrNull() ?: "home"
 
             var activeWorldId by remember { mutableIntStateOf(1) }
+            var activeLevelNumber by remember { mutableIntStateOf(1) }
+            var activeTutorContext by remember { mutableStateOf<TutorContext?>(null) }
 
             fun navigateTo(screen: String) {
                 if (screenStack.lastOrNull() != screen) {
@@ -91,6 +94,10 @@ class MainActivity : ComponentActivity() {
                                 progress = progress,
                                 currentLang = currentLang,
                                 onToggleLang = ::toggleLanguage,
+                                onSelectLevel = { lvlNum ->
+                                    activeLevelNumber = lvlNum
+                                    navigateTo("level_play")
+                                },
                                 onSelectLesson = { wId ->
                                     activeWorldId = wId
                                     navigateTo("lesson")
@@ -103,19 +110,89 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        "lesson" -> {
-                            LaunchedEffect(activeWorldId) {
-                                val concepts = ChemistryUniverseData.REVIEW_ITEMS
-                                    .filter { it.worldId == activeWorldId }
-                                    .flatMap { listOf(it.id, it.conceptKey) }
-                                storageManager.recordLessonCompletion(activeWorldId, "w${activeWorldId}_lesson", concepts)
-                                progress = storageManager.loadUserProgress()
+                        "level_play" -> {
+                            LevelPlayScreen(
+                                levelNumber = activeLevelNumber,
+                                currentLang = currentLang,
+                                score = progress.totalScore,
+                                isLevelAlreadyCompleted = progress.completedLevels.contains(activeLevelNumber),
+                                savedStars = progress.levelStars[activeLevelNumber] ?: 0,
+                                reducedMotion = progress.settings.reducedMotion,
+                                visualEffectsHigh = progress.settings.visualEffectsHigh,
+                                onToggleLang = ::toggleLanguage,
+                                onCompleteLevel = { lvlNum, earnedScore, stars, conceptKey ->
+                                    val awarded = storageManager.recordLevelCompletion(lvlNum, earnedScore, stars, conceptKey)
+                                    progress = storageManager.loadUserProgress()
+                                    awarded
+                                },
+                                onOpenAiTutor = { level, userLastAnswer, isCorrect ->
+                                    val expAns = if (currentLang == "bn") {
+                                        level.question.optionsBn.getOrNull(level.question.correctIndex) ?: ""
+                                    } else {
+                                        level.question.optionsEn.getOrNull(level.question.correctIndex) ?: ""
+                                    }
+                                    activeTutorContext = TutorContext(
+                                        language = currentLang,
+                                        worldId = level.worldId,
+                                        levelNumber = level.levelNumber,
+                                        levelTitle = if (currentLang == "bn") level.titleBn else level.titleEn,
+                                        objective = if (currentLang == "bn") level.objectiveBn else level.objectiveEn,
+                                        conceptExplanation = if (currentLang == "bn") level.conceptExplanationBn else level.conceptExplanationEn,
+                                        keyRule = if (currentLang == "bn") level.keyRuleBn else level.keyRuleEn,
+                                        pharmacyRelevance = if (currentLang == "bn") level.pharmacyRelevanceBn else level.pharmacyRelevanceEn,
+                                        lastSubmittedAnswer = userLastAnswer,
+                                        isCorrect = isCorrect,
+                                        expectedAnswer = expAns
+                                    )
+                                    navigateTo("ai_tutor")
+                                },
+                                onBack = ::navigateBack
+                            )
+                        }
+
+                        "ai_tutor" -> {
+                            val defaultGeneralTutorContext = remember(currentLang) {
+                                TutorContext(
+                                    language = currentLang,
+                                    worldId = 1,
+                                    levelNumber = 1,
+                                    levelTitle = if (currentLang == "bn") "সাধারণ রসায়ন সহায়ক" else "General Chemistry Mentor",
+                                    objective = if (currentLang == "bn") "বি.ফার্ম মৌলিক রসায়ন ও সার্বিক বিজ্ঞানের ধারণা ব্যাখ্যা" else "Foundational B.Pharm Chemistry Concepts & Inquiry",
+                                    conceptExplanation = if (currentLang == "bn") "পরমাণুর গঠন, পর্যায় সারণি, রাসায়নিক বন্ধন, সমীকরণ সমতাকরণ, মোলারিটি, এবং ফার্মা ফর্মুলেশনের যে কোনো প্রশ্ন জিজ্ঞাসা করুন।" else "Ask any question regarding atomic structure, periodic properties, chemical bonding, stoichiometry, pH, or pharmaceutical solutions.",
+                                    keyRule = if (currentLang == "bn") "রসায়ন মুখস্থের বিষয় নয়; এটি জীবন ও ঔষধ বিজ্ঞানের আণবিক যুক্তি।" else "Chemistry is not memorization; it is the universal molecular logic of life and pharmacy.",
+                                    pharmacyRelevance = if (currentLang == "bn") "ফার্মাসিউটিক্যাল ইনঅর্গানিক কেমিস্ট্রি (BP106T) ও অর্গানিক কেমিস্ট্রি (BP202T)" else "Pharmaceutical Inorganic Chemistry (BP106T) & Organic Chemistry (BP202T)"
+                                )
                             }
+                            AiTutorScreen(
+                                tutorContext = activeTutorContext ?: defaultGeneralTutorContext,
+                                currentLang = currentLang,
+                                score = progress.totalScore,
+                                onToggleLang = ::toggleLanguage,
+                                onBack = {
+                                    activeTutorContext = null
+                                    navigateBack()
+                                }
+                            )
+                        }
+
+                        "lesson" -> {
+                            val isLessonAlreadyLearned = progress.worldProgressMap[activeWorldId]?.lessonsCompleted?.contains("w${activeWorldId}_lesson") == true
                             LessonScreen(
                                 worldId = activeWorldId,
                                 currentLang = currentLang,
                                 score = progress.totalScore,
+                                isAlreadyLearned = isLessonAlreadyLearned,
                                 onToggleLang = ::toggleLanguage,
+                                onCompleteLesson = {
+                                    val concepts = ChemistryUniverseData.REVIEW_ITEMS
+                                        .filter { it.worldId == activeWorldId }
+                                        .flatMap { listOf(it.id, it.conceptKey) }
+                                    storageManager.recordLessonCompletion(activeWorldId, "w${activeWorldId}_lesson", concepts)
+                                    if (!isLessonAlreadyLearned) {
+                                        storageManager.addPoints(50, isMemory = false)
+                                    }
+                                    progress = storageManager.loadUserProgress()
+                                },
                                 onLaunchGame = {
                                     navigateTo("chemistry_game")
                                 },

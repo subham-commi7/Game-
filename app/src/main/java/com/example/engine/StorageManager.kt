@@ -282,6 +282,10 @@ class StorageManager(context: Context) {
         stars: Int,
         conceptKey: String = ""
     ): Int {
+        if (levelNumber !in 1..50 || scoreEarned < 0 || stars !in 1..3) {
+            return 0
+        }
+
         val editor = prefs.edit()
         val completedLevelsStr = prefs.getString(KEY_COMPLETED_LEVELS, "") ?: ""
         val completedSet = completedLevelsStr.split(",").filter { it.isNotEmpty() }.mapNotNull { it.toIntOrNull() }.toMutableSet()

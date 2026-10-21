@@ -43,7 +43,47 @@ fun LevelPlayScreen(
     onBack: () -> Unit
 ) {
     val level = remember(levelNumber) {
-        CampaignLevelsData.getLevel(levelNumber) ?: CampaignLevelsData.LEVELS[0]
+        CampaignLevelsData.getLevel(levelNumber)
+    }
+
+    if (level == null) {
+        Scaffold(
+            topBar = {
+                SciFiTopBar(
+                    title = if (currentLang == "bn") "ত্রুটি: স্তর পাওয়া যায়নি" else "Level Not Found",
+                    score = score,
+                    currentLang = currentLang,
+                    onToggleLang = onToggleLang,
+                    onBack = onBack,
+                    testTag = "invalid_level_top_bar"
+                )
+            },
+            containerColor = SpaceBlack
+        ) { innerPadding ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .padding(24.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                SciFiCard(borderColor = RoseNeon) {
+                    Text(
+                        text = if (currentLang == "bn") "অনুরোধকৃত স্তর ($levelNumber) অভিযান মানচিত্রে বিদ্যমান নেই।" else "Requested campaign level ($levelNumber) does not exist.",
+                        fontSize = 14.sp,
+                        color = RoseLight,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(14.dp))
+                    NeonButton(
+                        text = if (currentLang == "bn") "অভিযান মানচিত্রে ফিরে যান" else "Return to Expedition",
+                        onClick = onBack,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+        }
+        return
     }
 
     var selectedOption by remember(level.levelNumber) { mutableIntStateOf(-1) }
@@ -69,7 +109,8 @@ fun LevelPlayScreen(
 
     val calculatedScore = remember(starsEarned, usedHint) {
         val base = level.xpReward
-        if (starsEarned == 3) base else if (starsEarned == 2) (base * 0.85).toInt() else (base * 0.70).toInt()
+        val raw = if (starsEarned == 3) base else if (starsEarned == 2) (base * 0.85).toInt() else (base * 0.70).toInt()
+        if (usedHint) maxOf(10, raw - 15) else raw
     }
 
     val scrollState = rememberScrollState()
@@ -154,18 +195,18 @@ fun LevelPlayScreen(
                 )
             }
 
-            // Step 2: Interactive Scientific Visual for this World
+            // Step 2: Interactive Scientific Visual & Lab for this World
             when (level.worldId) {
-                1 -> InteractiveAtomVisual(currentLang = currentLang, reducedMotion = reducedMotion, visualEffectsHigh = visualEffectsHigh)
-                2 -> InteractivePeriodicTableVisual(currentLang = currentLang)
-                3 -> InteractiveBondingVisual(currentLang = currentLang)
-                4 -> InteractiveFormulaForgeVisual(currentLang = currentLang)
-                5 -> InteractiveReactionReactorVisual(currentLang = currentLang)
-                6 -> InteractiveMoleMatrixVisual(currentLang = currentLang)
-                7 -> InteractivePHScaleVisual(currentLang = currentLang)
-                8 -> InteractiveSolutionLabVisual(currentLang = currentLang)
-                9 -> InteractiveOrganicForestVisual(currentLang = currentLang)
-                else -> InteractivePharmaVaultVisual(currentLang = currentLang)
+                1 -> InteractiveAtomVisual(levelNumber = level.levelNumber, currentLang = currentLang, reducedMotion = reducedMotion, visualEffectsHigh = visualEffectsHigh)
+                2 -> InteractivePeriodicTableVisual(levelNumber = level.levelNumber, currentLang = currentLang)
+                3 -> InteractiveBondingVisual(levelNumber = level.levelNumber, currentLang = currentLang)
+                4 -> InteractiveFormulaForgeVisual(levelNumber = level.levelNumber, currentLang = currentLang)
+                5 -> InteractiveReactionReactorVisual(levelNumber = level.levelNumber, currentLang = currentLang)
+                6 -> InteractiveMoleMatrixVisual(levelNumber = level.levelNumber, currentLang = currentLang)
+                7 -> InteractivePHScaleVisual(levelNumber = level.levelNumber, currentLang = currentLang)
+                8 -> InteractiveSolutionLabVisual(levelNumber = level.levelNumber, currentLang = currentLang)
+                9 -> InteractiveOrganicForestVisual(levelNumber = level.levelNumber, currentLang = currentLang)
+                else -> InteractivePharmaVaultVisual(levelNumber = level.levelNumber, currentLang = currentLang)
             }
 
             // Step 3: Worked Example
@@ -261,6 +302,9 @@ fun LevelPlayScreen(
                             .border(1.dp, optBorderColor, RoundedCornerShape(10.dp))
                             .clickable(enabled = !isSubmitted || !isCorrect) {
                                 selectedOption = idx
+                                if (!isCorrect) {
+                                    isSubmitted = false
+                                }
                             }
                             .padding(12.dp)
                             .testTag("level_option_$idx")
@@ -323,7 +367,7 @@ fun LevelPlayScreen(
                         Column {
                             Text(
                                 text = if (isCorrect)
-                                    (if (currentLang == "bn") "✓ সঠিক উত্তর! পূর্ণ ধারণা অর্জিত।" else "✓ Correct! Concept mastered.")
+                                    (if (currentLang == "bn") "✓ সঠিক উত্তর! পরবর্তী ধাপে এগিয়ে যান।" else "✓ Correct! Step completed.")
                                 else
                                     (if (currentLang == "bn") "✗ সঠিক নয়। আবার চিন্তা করুন ও সমাধান বিশ্লেষণ করুন।" else "✗ Incorrect. Review the reasoning below."),
                                 fontWeight = FontWeight.Bold,
@@ -358,8 +402,10 @@ fun LevelPlayScreen(
                             if (selectedOption != -1) {
                                 isSubmitted = true
                                 if (selectedOption == q.correctIndex) {
-                                    val pts = onCompleteLevel(level.levelNumber, calculatedScore, starsEarned, level.conceptKey)
-                                    awardedPoints = pts
+                                    if (awardedPoints == -1) {
+                                        val pts = onCompleteLevel(level.levelNumber, calculatedScore, starsEarned, level.conceptKey)
+                                        awardedPoints = pts
+                                    }
                                 } else {
                                     mistakeCount++
                                 }

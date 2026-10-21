@@ -248,4 +248,60 @@ class ExampleRobolectricTest {
         assertFalse(reloaded.visualEffectsHigh)
         assertEquals("Challenging", reloaded.challengeLevel)
     }
+
+    @Test
+    fun testCampaignLevelProgressionAndDuplicateRewardProtection() {
+        // Initial state: Level 1 unlocked, no levels completed
+        val pInit = storage.loadUserProgress()
+        assertTrue(pInit.unlockedLevels.contains(1))
+        assertFalse(pInit.unlockedLevels.contains(2))
+        assertTrue(pInit.completedLevels.isEmpty())
+        assertEquals(0, pInit.totalScore)
+
+        // Complete Level 1 with 3 stars and 100 XP
+        val reward1 = storage.recordLevelCompletion(
+            levelNumber = 1,
+            scoreEarned = 100,
+            stars = 3,
+            conceptKey = "atom_basics"
+        )
+        assertEquals(100, reward1)
+
+        val pAfterLvl1 = storage.loadUserProgress()
+        assertEquals(100, pAfterLvl1.totalScore)
+        assertTrue(pAfterLvl1.completedLevels.contains(1))
+        assertTrue(pAfterLvl1.unlockedLevels.contains(2)) // Level 2 unlocked!
+        assertEquals(3, pAfterLvl1.levelStars[1])
+        assertEquals(100, pAfterLvl1.levelHighScores[1])
+        assertTrue(pAfterLvl1.learnedConceptIds.contains("atom_basics"))
+
+        // Replaying Level 1 must award 0 duplicate XP!
+        val replayReward = storage.recordLevelCompletion(
+            levelNumber = 1,
+            scoreEarned = 100,
+            stars = 3,
+            conceptKey = "atom_basics"
+        )
+        assertEquals(0, replayReward)
+
+        val pAfterReplay = storage.loadUserProgress()
+        assertEquals(100, pAfterReplay.totalScore) // Score did NOT increase!
+
+        // Invalid level completions must be rejected
+        assertEquals(0, storage.recordLevelCompletion(levelNumber = 0, scoreEarned = 100, stars = 3))
+        assertEquals(0, storage.recordLevelCompletion(levelNumber = 51, scoreEarned = 100, stars = 3))
+        assertEquals(0, storage.recordLevelCompletion(levelNumber = 2, scoreEarned = -50, stars = 3))
+        assertEquals(0, storage.recordLevelCompletion(levelNumber = 2, scoreEarned = 100, stars = 4)) // stars > 3
+
+        // Completing World 1 Boss (Level 5) unlocks World 2 (and Level 6)
+        storage.recordLevelCompletion(levelNumber = 2, scoreEarned = 100, stars = 2)
+        storage.recordLevelCompletion(levelNumber = 3, scoreEarned = 100, stars = 3)
+        storage.recordLevelCompletion(levelNumber = 4, scoreEarned = 100, stars = 3)
+        val bossReward = storage.recordLevelCompletion(levelNumber = 5, scoreEarned = 200, stars = 3)
+        assertEquals(200, bossReward)
+
+        val pAfterWorld1 = storage.loadUserProgress()
+        assertTrue(pAfterWorld1.unlockedWorlds.contains(2)) // World 2 unlocked!
+        assertTrue(pAfterWorld1.unlockedLevels.contains(6)) // Level 6 unlocked!
+    }
 }

@@ -162,6 +162,7 @@ fun HomeScreen(
             // Navigation Grid
             val menuItems = listOf(
                 MenuItem("chemistry_universe", Strings.chemistryUniverse(currentLang), if (currentLang == "bn") "১০টি বিজ্ঞান অঞ্চল" else "10 Regions", Icons.Default.AutoAwesome, CyanNeon, "nav_chemistry_universe"),
+                MenuItem("ai_tutor", if (currentLang == "bn") "AI রসায়ন টিউটর" else "AI Chemistry Tutor", if (currentLang == "bn") "জেমিনাই বিজ্ঞান সহায়ক" else "Gemini Mentor", Icons.Default.AutoAwesome, CyanGlow, "nav_ai_tutor"),
                 MenuItem("memory_universe", Strings.memoryUniverse(currentLang), if (currentLang == "bn") "৫টি স্মৃতি মোড" else "5 Core Modes", Icons.Default.Psychology, VioletNeon, "nav_memory_universe"),
                 MenuItem("daily_challenge", Strings.dailyChallenge(currentLang), if (currentLang == "bn") "দৈনিক কুইজ" else "Daily Quest", Icons.Default.Bolt, AmberNeon, "nav_daily_challenge"),
                 MenuItem("practice_lab", Strings.practiceLab(currentLang), if (currentLang == "bn") "মুক্ত ল্যাব" else "Sandbox", Icons.Default.Biotech, EmeraldNeon, "nav_practice_lab"),

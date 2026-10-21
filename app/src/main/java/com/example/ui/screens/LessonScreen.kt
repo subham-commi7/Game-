@@ -36,13 +36,16 @@ fun LessonScreen(
     worldId: Int,
     currentLang: String,
     score: Int,
+    isAlreadyLearned: Boolean = false,
     onToggleLang: () -> Unit,
+    onCompleteLesson: () -> Unit,
     onLaunchGame: () -> Unit,
     onBack: () -> Unit
 ) {
     val lesson = ChemistryUniverseData.LESSONS[worldId] ?: ChemistryUniverseData.LESSONS[1]!!
     val scrollState = rememberScrollState()
     var isBookmarked by remember { mutableStateOf(false) }
+    var hasCompletedLessonStudy by remember(worldId) { mutableStateOf(isAlreadyLearned) }
 
     Scaffold(
         topBar = {
@@ -257,6 +260,35 @@ fun LessonScreen(
                     color = TextSecondary,
                     lineHeight = 16.sp
                 )
+            }
+
+            // Lesson Completion Action
+            if (!hasCompletedLessonStudy) {
+                NeonButton(
+                    text = if (currentLang == "bn") "পাঠ অধ্যয়ন সম্পন্ন করুন (+৫০ XP)" else "Complete Lesson Study (+50 XP)",
+                    onClick = {
+                        hasCompletedLessonStudy = true
+                        onCompleteLesson()
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    color = CyanNeon,
+                    textColor = SpaceNavy,
+                    testTag = "complete_lesson_btn"
+                )
+            } else {
+                SciFiCard(borderColor = EmeraldNeon) {
+                    Text(
+                        text = if (currentLang == "bn")
+                            "✓ পাঠের ধারণা সমাপ্ত হয়েছে এবং আপনার রিভিশন নোটবুকে যুক্ত হয়েছে।"
+                        else
+                            "✓ Lesson studied. Core concepts added to your Spaced Review notebook.",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = EmeraldLight
+                    )
+                }
             }
 
             // Launch Playable Mini-Game

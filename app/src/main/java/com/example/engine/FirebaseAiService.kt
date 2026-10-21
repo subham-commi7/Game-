@@ -66,7 +66,8 @@ class FirebaseAiService(private val context: Context) {
 
         try {
             // Use official Firebase AI Logic SDK with supported model
-            val generativeModel = FirebaseAI.getInstance().generativeModel("gemini-2.5-flash")
+            val app = FirebaseApp.getInstance()
+            val generativeModel = FirebaseAI.getInstance(app).generativeModel("gemini-2.5-flash")
 
             val systemContextPrompt = buildString {
                 appendLine("You are the NEUROVAULT AI Chemistry Tutor for B.Pharm students.")
