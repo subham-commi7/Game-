@@ -356,31 +356,66 @@ fun LevelPlayScreen(
 
                 // Feedback after submit
                 if (isSubmitted) {
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
+                            .clip(RoundedCornerShape(10.dp))
                             .background(if (isCorrect) EmeraldNeon.copy(alpha = 0.15f) else RoseNeon.copy(alpha = 0.15f))
-                            .padding(10.dp)
+                            .border(1.dp, if (isCorrect) EmeraldNeon else RoseNeon, RoundedCornerShape(10.dp))
+                            .padding(12.dp)
                     ) {
-                        Column {
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = if (isCorrect) Icons.Default.CheckCircle else Icons.Default.Close,
+                                    contentDescription = null,
+                                    tint = if (isCorrect) EmeraldNeon else RoseNeon,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = if (isCorrect)
+                                        (if (currentLang == "bn") "✓ সঠিক উত্তর! পূর্ণ ধারণা অর্জিত হয়েছে।" else "✓ Correct! Core concept demonstrated.")
+                                    else
+                                        (if (currentLang == "bn") "✗ সঠিক নয়। নিচে যুক্তিটি বুঝে নিন ও আবার চেষ্টা করুন।" else "✗ Incorrect. Read the explanation and try again."),
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isCorrect) EmeraldLight else RoseLight,
+                                    fontSize = 13.sp
+                                )
+                            }
+
+                            // Correct Answer Display
+                            val correctOptText = options.getOrNull(q.correctIndex) ?: ""
                             Text(
-                                text = if (isCorrect)
-                                    (if (currentLang == "bn") "✓ সঠিক উত্তর! পরবর্তী ধাপে এগিয়ে যান।" else "✓ Correct! Step completed.")
-                                else
-                                    (if (currentLang == "bn") "✗ সঠিক নয়। আবার চিন্তা করুন ও সমাধান বিশ্লেষণ করুন।" else "✗ Incorrect. Review the reasoning below."),
+                                text = "${if (currentLang == "bn") "সঠিক উত্তর" else "Correct Answer"}: ${('A' + q.correctIndex)}. $correctOptText",
+                                fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = if (isCorrect) EmeraldLight else RoseLight,
-                                fontSize = 12.sp
+                                color = if (isCorrect) EmeraldLight else AmberNeon
                             )
-                            Spacer(modifier = Modifier.height(4.dp))
+
+                            // Step-by-step Explanation
                             Text(
                                 text = if (currentLang == "bn") q.explanationBn else q.explanationEn,
                                 fontSize = 11.sp,
-                                color = TextSecondary,
-                                lineHeight = 15.sp
+                                color = TextPrimary,
+                                lineHeight = 16.sp
                             )
+
+                            // Why wrong if incorrect
+                            if (!isCorrect && selectedOption != -1 && selectedOption != q.correctIndex) {
+                                val selectedWrong = options.getOrNull(selectedOption) ?: ""
+                                Text(
+                                    text = if (currentLang == "bn")
+                                        "কেন '${('A' + selectedOption)}' ভুল: এটি মূল রসায়ন নিয়মের সাথে সামঞ্জস্যপূর্ণ নয় (${q.hintBn})।"
+                                    else
+                                        "Why '${('A' + selectedOption)}' is incorrect: It contradicts the chemical principle (${q.hintEn}).",
+                                    fontSize = 11.sp,
+                                    color = RoseLight,
+                                    lineHeight = 15.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
                         }
                     }
                 }
@@ -396,14 +431,29 @@ fun LevelPlayScreen(
                     NeonButton(
                         text = if (selectedOption == -1)
                             (if (currentLang == "bn") "একটি বিকল্প নির্বাচন করুন" else "Select an Option")
+                        else if (isSubmitted && !isCorrect)
+                            (if (currentLang == "bn") "পুনরায় চেষ্টা করুন" else "Retry Question")
                         else
                             (if (currentLang == "bn") "উত্তর নিশ্চিত করুন" else "Submit Answer"),
                         onClick = {
-                            if (selectedOption != -1) {
+                            if (isSubmitted && !isCorrect) {
+                                // Retry mode
+                                isSubmitted = false
+                                selectedOption = -1
+                            } else if (selectedOption != -1) {
                                 isSubmitted = true
-                                if (selectedOption == q.correctIndex) {
+                                val willBeCorrect = selectedOption == q.correctIndex
+                                if (willBeCorrect) {
+                                    val earnedStars = if (mistakeCount == 0 && !usedHint) 3 else if (mistakeCount <= 1) 2 else 1
+                                    val base = level.xpReward
+                                    val raw = when (earnedStars) {
+                                        3 -> base
+                                        2 -> (base * 0.85).toInt()
+                                        else -> (base * 0.70).toInt()
+                                    }
+                                    val finalScore = if (usedHint) maxOf(10, raw - 15) else raw
                                     if (awardedPoints == -1) {
-                                        val pts = onCompleteLevel(level.levelNumber, calculatedScore, starsEarned, level.conceptKey)
+                                        val pts = onCompleteLevel(level.levelNumber, finalScore, earnedStars, level.conceptKey)
                                         awardedPoints = pts
                                     }
                                 } else {
@@ -411,7 +461,7 @@ fun LevelPlayScreen(
                                 }
                             }
                         },
-                        enabled = selectedOption != -1,
+                        enabled = selectedOption != -1 || (isSubmitted && !isCorrect),
                         modifier = Modifier.weight(1f),
                         testTag = "submit_level_btn"
                     )
@@ -443,12 +493,13 @@ fun LevelPlayScreen(
             // Level Completion Banner
             if (isSubmitted && isCorrect) {
                 SciFiCard(borderColor = EmeraldNeon) {
+                    val finalEarnedStars = if (mistakeCount == 0 && !usedHint) 3 else if (mistakeCount <= 1) 2 else 1
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column {
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = if (currentLang == "bn") "অভিনন্দন! স্তর সম্পন্ন হয়েছে" else "Level Completed!",
                                 fontSize = 14.sp,
@@ -457,9 +508,9 @@ fun LevelPlayScreen(
                             )
                             Text(
                                 text = if (awardedPoints > 0)
-                                    "+$awardedPoints XP Awarded • $starsEarned Stars Earned"
+                                    "+$awardedPoints XP Awarded • $finalEarnedStars Stars Earned"
                                 else
-                                    "Replay Complete ($starsEarned Stars) • No Duplicate XP",
+                                    "Replay Complete ($finalEarnedStars Stars) • No Duplicate XP",
                                 fontSize = 11.sp,
                                 color = AmberLight
                             )
@@ -472,7 +523,7 @@ fun LevelPlayScreen(
                             modifier = Modifier.testTag("continue_expedition_btn")
                         ) {
                             Text(
-                                text = if (currentLang == "bn") "পরবর্তী" else "Continue",
+                                text = if (currentLang == "bn") "মানচিত্রে ফিরুন" else "Continue",
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 12.sp
                             )

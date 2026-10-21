@@ -64,6 +64,11 @@ class MainActivity : ComponentActivity() {
                 navigateBack()
             }
 
+            // Always synchronize latest user progress when returning to any screen
+            LaunchedEffect(currentScreen) {
+                progress = storageManager.loadUserProgress()
+            }
+
             MyApplicationTheme(darkTheme = true) {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     when (currentScreen) {

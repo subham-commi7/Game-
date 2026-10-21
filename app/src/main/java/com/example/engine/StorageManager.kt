@@ -272,6 +272,20 @@ class StorageManager(context: Context) {
     }
 
     /**
+     * Returns the earliest unlocked level that has not yet been completed (1..50).
+     */
+    fun getEarliestUnfinishedLevel(): Int {
+        val completedLevelsStr = prefs.getString(KEY_COMPLETED_LEVELS, "") ?: ""
+        val completedSet = completedLevelsStr.split(",").filter { it.isNotEmpty() }.mapNotNull { it.toIntOrNull() }.toSet()
+        val unlockedLevelsStr = prefs.getString(KEY_UNLOCKED_LEVELS, "1") ?: "1"
+        val unlockedSet = unlockedLevelsStr.split(",").filter { it.isNotEmpty() }.mapNotNull { it.toIntOrNull() }.toSet().ifEmpty { setOf(1) }
+
+        // Find the lowest unlocked level that has not been completed
+        val earliest = (1..50).firstOrNull { lvl -> unlockedSet.contains(lvl) && !completedSet.contains(lvl) }
+        return earliest ?: (unlockedSet.maxOrNull() ?: 1)
+    }
+
+    /**
      * Records completion of an individual campaign level (1..50).
      * Enforces that first-time completion awards XP bonus and unlocks next level/world.
      * Replaying records personal best stars and score, but awards 0 duplicate completion points.
@@ -286,6 +300,9 @@ class StorageManager(context: Context) {
             return 0
         }
 
+        val sanitizedStars = stars
+        val sanitizedScore = scoreEarned
+
         val editor = prefs.edit()
         val completedLevelsStr = prefs.getString(KEY_COMPLETED_LEVELS, "") ?: ""
         val completedSet = completedLevelsStr.split(",").filter { it.isNotEmpty() }.mapNotNull { it.toIntOrNull() }.toMutableSet()
@@ -295,7 +312,7 @@ class StorageManager(context: Context) {
         if (isFirstTime) {
             completedSet.add(levelNumber)
             editor.putString(KEY_COMPLETED_LEVELS, completedSet.joinToString(","))
-            pointsAwarded = scoreEarned
+            pointsAwarded = sanitizedScore
 
             val totalScore = prefs.getInt(KEY_SCORE, 0)
             val chemScore = prefs.getInt(KEY_CHEM_SCORE, 0)
@@ -305,12 +322,12 @@ class StorageManager(context: Context) {
 
         // Always update best stars and score
         val prevStars = prefs.getInt("level_${levelNumber}_stars", 0)
-        if (stars > prevStars) {
-            editor.putInt("level_${levelNumber}_stars", stars)
+        if (sanitizedStars > prevStars) {
+            editor.putInt("level_${levelNumber}_stars", sanitizedStars)
         }
         val prevScore = prefs.getInt("level_${levelNumber}_score", 0)
-        if (scoreEarned > prevScore) {
-            editor.putInt("level_${levelNumber}_score", scoreEarned)
+        if (sanitizedScore > prevScore) {
+            editor.putInt("level_${levelNumber}_score", sanitizedScore)
         }
 
         // Unlock next level (up to 50)
@@ -338,7 +355,7 @@ class StorageManager(context: Context) {
             editor.putString(KEY_LEARNED_CONCEPTS, learnedSet.joinToString(","))
         }
 
-        editor.apply()
+        editor.commit()
         return pointsAwarded
     }
 

@@ -366,4 +366,66 @@ class ChemistryEngineTest {
         // Neutral: p=6, e=6 -> Charge = 0
         assertEquals(0, ChemistryEngine.calculateIonCharge(protons = 6, electrons = 6))
     }
+
+    @Test
+    fun testMolarMassCalculations() {
+        // Water: H2O = 2*1.008 + 15.999 = 18.015
+        val h2oMass = ChemistryEngine.calculateMolarMass("H2O")
+        assertEquals(18.015, h2oMass, 0.05)
+
+        // Sodium chloride: NaCl = 22.990 + 35.45 = 58.44
+        val naclMass = ChemistryEngine.calculateMolarMass("NaCl")
+        assertEquals(58.44, naclMass, 0.05)
+
+        // Calcium carbonate: CaCO3 = 40.078 + 12.011 + 3*15.999 = 100.086
+        val caco3Mass = ChemistryEngine.calculateMolarMass("CaCO3")
+        assertEquals(100.086, caco3Mass, 0.1)
+
+        // Sulfuric acid: H2SO4 = 2*1.008 + 32.06 + 4*15.999 = 98.07
+        val h2so4Mass = ChemistryEngine.calculateMolarMass("H2SO4")
+        assertEquals(98.07, h2so4Mass, 0.1)
+
+        // Aluminum sulfate: Al2(SO4)3 = 2*26.982 + 3*(32.06 + 63.996) = 342.15
+        val al2so43Mass = ChemistryEngine.calculateMolarMass("Al2(SO4)3")
+        assertEquals(342.15, al2so43Mass, 0.5)
+    }
+
+    @Test
+    fun testReactionStoichiometryAndLimitingReagents() {
+        val neutralization = ChemistryEngine.CURATED_REACTIONS.first { it.id == "rx_neutralize" }
+
+        // HCl (36.46 g/mol) + NaOH (40.00 g/mol) -> NaCl + H2O
+        // 1. Equal stoichiometric ratio: 36.46 g HCl and 40.00 g NaOH (1.0 mol each)
+        val outcomeBalanced = ChemistryEngine.calculateReactionStoichiometry(
+            reaction = neutralization,
+            reactant1Grams = 36.46,
+            reactant2Grams = 40.00
+        )
+        assertEquals(1.0, outcomeBalanced.theoreticalYieldMoles, 0.02)
+        assertEquals(58.44, outcomeBalanced.theoreticalYieldGrams, 0.1)
+        assertEquals(0.0, outcomeBalanced.excessLeftoverGrams, 0.05)
+
+        // 2. Excess NaOH: 36.46 g HCl (1.0 mol) and 80.00 g NaOH (2.0 mol)
+        // Limiting reagent must be HCl!
+        val outcomeExcessBase = ChemistryEngine.calculateReactionStoichiometry(
+            reaction = neutralization,
+            reactant1Grams = 36.46,
+            reactant2Grams = 80.00
+        )
+        assertTrue(outcomeExcessBase.limitingReagent.contains("HCl"))
+        assertEquals(1.0, outcomeExcessBase.theoreticalYieldMoles, 0.02)
+        assertEquals(40.00, outcomeExcessBase.excessLeftoverGrams, 0.1)
+
+        // 3. Excess HCl: 72.92 g HCl (2.0 mol) and 40.00 g NaOH (1.0 mol)
+        // Limiting reagent must be NaOH!
+        val outcomeExcessAcid = ChemistryEngine.calculateReactionStoichiometry(
+            reaction = neutralization,
+            reactant1Grams = 72.92,
+            reactant2Grams = 40.00
+        )
+        assertTrue(outcomeExcessAcid.limitingReagent.contains("NaOH"))
+        assertEquals(1.0, outcomeExcessAcid.theoreticalYieldMoles, 0.02)
+        assertEquals(36.46, outcomeExcessAcid.excessLeftoverGrams, 0.1)
+    }
 }
+

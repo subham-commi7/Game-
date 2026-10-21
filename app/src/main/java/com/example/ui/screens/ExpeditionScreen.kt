@@ -71,49 +71,98 @@ fun ExpeditionScreen(
             contentPadding = PaddingValues(vertical = 12.dp)
         ) {
             item {
-                // Campaign Summary Status Card
+                // Campaign Summary Status Card with Continue Action
+                val nextPlayableLevel = remember(progress.unlockedLevels, progress.completedLevels) {
+                    (1..50).firstOrNull { progress.unlockedLevels.contains(it) && !progress.completedLevels.contains(it) }
+                        ?: (progress.unlockedLevels.maxOrNull() ?: 1)
+                }
+
                 SciFiCard(borderColor = BorderCyan) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
-                            Text(
-                                text = if (currentLang == "bn") "৫০-স্তরের মহাবিশ্ব অভিযান" else "50-Level Campaign Expedition",
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Black,
-                                color = CyanNeon
-                            )
-                            Text(
-                                text = if (currentLang == "bn")
-                                    "১০টি বিশ্ব • প্রতি বিশ্বে ৫টি সক্রিয় স্তর"
-                                else
-                                    "10 Worlds • 5 Guided Scientific Stages Each",
-                                fontSize = 11.sp,
-                                color = TextSecondary
-                            )
-                        }
-                        Column(horizontalAlignment = Alignment.End) {
-                            Text(
-                                text = "$totalLevelsCompleted / 50 ${if (currentLang == "bn") "সম্পন্ন" else "Done"}",
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = EmeraldNeon
-                            )
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Default.Star,
-                                    contentDescription = "Stars",
-                                    tint = AmberNeon,
-                                    modifier = Modifier.size(13.dp)
-                                )
-                                Spacer(modifier = Modifier.width(3.dp))
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
                                 Text(
-                                    text = "$totalStarsCollected ★",
+                                    text = if (currentLang == "bn") "৫০-স্তরের মহাবিশ্ব অভিযান" else "50-Level Campaign Expedition",
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = CyanNeon
+                                )
+                                Text(
+                                    text = if (currentLang == "bn")
+                                        "১০টি বিশ্ব • প্রতি বিশ্বে ৫টি শিক্ষণীয় স্তর"
+                                    else
+                                        "10 Worlds • 5 Guided Scientific Stages Each",
                                     fontSize = 11.sp,
+                                    color = TextSecondary
+                                )
+                            }
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text(
+                                    text = "$totalLevelsCompleted / 50 ${if (currentLang == "bn") "সম্পন্ন" else "Done"}",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = EmeraldNeon
+                                )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.Star,
+                                        contentDescription = "Stars",
+                                        tint = AmberNeon,
+                                        modifier = Modifier.size(13.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(3.dp))
+                                    Text(
+                                        text = "$totalStarsCollected / 150 ★",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = AmberLight
+                                    )
+                                }
+                            }
+                        }
+
+                        // Continue Expedition Banner & Action
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(SurfaceNavy)
+                                .border(1.dp, CyanNeon.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                                .padding(horizontal = 10.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    text = if (currentLang == "bn") "পরবর্তী খেলার স্তর:" else "Next Playable Stage:",
+                                    fontSize = 10.sp,
+                                    color = TextTertiary
+                                )
+                                Text(
+                                    text = "${if (currentLang == "bn") "স্তর" else "Stage"} $nextPlayableLevel",
+                                    fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = AmberLight
+                                )
+                            }
+
+                            Button(
+                                onClick = { onSelectLevel(nextPlayableLevel) },
+                                colors = ButtonDefaults.buttonColors(containerColor = CyanNeon, contentColor = SpaceBlack),
+                                shape = RoundedCornerShape(6.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                modifier = Modifier.testTag("continue_expedition_action_btn")
+                            ) {
+                                Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = if (currentLang == "bn") "অভিযান চালান" else "Continue Expedition",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 11.sp
                                 )
                             }
                         }
@@ -129,8 +178,8 @@ fun ExpeditionScreen(
                     world = world,
                     progress = progress,
                     isUnlocked = isUnlocked,
-                    stars = wp.stars,
-                    score = wp.score,
+                    quizStars = wp.stars,
+                    quizScore = wp.score,
                     currentLang = currentLang,
                     onSelectLevel = onSelectLevel,
                     onOpenLesson = { onSelectLesson(world.id) },
@@ -146,8 +195,8 @@ private fun WorldItemCard(
     world: ChemistryWorld,
     progress: UserProgress,
     isUnlocked: Boolean,
-    stars: Int,
-    score: Int,
+    quizStars: Int,
+    quizScore: Int,
     currentLang: String,
     onSelectLevel: (Int) -> Unit,
     onOpenLesson: () -> Unit,
@@ -155,6 +204,12 @@ private fun WorldItemCard(
 ) {
     val borderColor = if (isUnlocked) BorderCyan else BorderSubtle
     val worldLevels = remember(world.id) { CampaignLevelsData.getLevelsForWorld(world.id) }
+    val stagesDone = remember(progress.completedLevels, world.id) {
+        worldLevels.count { progress.completedLevels.contains(it.levelNumber) }
+    }
+    val campaignStarsEarned = remember(progress.levelStars, world.id) {
+        worldLevels.sumOf { progress.levelStars[it.levelNumber] ?: 0 }
+    }
 
     SciFiCard(
         borderColor = borderColor,
@@ -208,23 +263,35 @@ private fun WorldItemCard(
                     lineHeight = 15.sp
                 )
 
-                // Mini Game title tag
-                Text(
-                    text = "Mini-Game: ${if (currentLang == "bn") world.gameTitleBn else world.gameTitleEn}",
-                    fontSize = 10.sp,
-                    color = VioletNeon,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(top = 2.dp)
-                )
+                // Distinct Campaign vs Quiz Stats
+                Row(
+                    modifier = Modifier.padding(top = 2.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Campaign: $stagesDone/5 Done ($campaignStarsEarned/15 ★)",
+                        fontSize = 10.sp,
+                        color = EmeraldLight,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "• Quiz: $quizStars/3 ★",
+                        fontSize = 10.sp,
+                        color = VioletNeon,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
 
-            // Stars
+            // World Campaign Stars
             Row {
+                val fullStars = (campaignStarsEarned / 5).coerceIn(0, 3)
                 repeat(3) { starIdx ->
                     Icon(
                         imageVector = Icons.Default.Star,
                         contentDescription = "Star",
-                        tint = if (starIdx < stars) AmberNeon else BorderSubtle,
+                        tint = if (starIdx < fullStars) AmberNeon else BorderSubtle,
                         modifier = Modifier.size(16.dp)
                     )
                 }
