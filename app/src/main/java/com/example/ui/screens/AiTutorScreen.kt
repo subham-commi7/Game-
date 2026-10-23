@@ -308,7 +308,7 @@ fun AiTutorScreen(
                 }
             }
 
-            Divider(color = BorderSubtle, thickness = 1.dp)
+            HorizontalDivider(color = BorderSubtle, thickness = 1.dp)
 
             // Conversation Message Thread
             LazyColumn(
